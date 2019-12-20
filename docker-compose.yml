@@ -1,0 +1,37 @@
+version: "2.4"
+services:
+  zookeeper:
+    image: zookeeper
+    user: "1000"
+    healthcheck:
+      test: ["CMD", "sh", "-xc", "test \"$$(echo ruok | nc 127.0.0.1 2181)\" = \"imok\""]
+      timeout: 5s
+      retries: 10
+    volumes:
+    - ./configs/zookeeper:/conf:ro
+  kafka:
+    image: wurstmeister/kafka:2.12-2.2.1
+    environment:
+      KAFKA_HEAP_OPTS: "-Xmx512M -Xms512M"
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENERS: "INSIDE://:9091,OUTSIDE://:${KAFKA_CLIENT_PORT:-9092}"
+      KAFKA_ADVERTISED_LISTENERS: "INSIDE://:9091,OUTSIDE://kafka:${KAFKA_CLIENT_PORT:-9092}"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_DELETE_TOPIC_ENABLE: "true"
+      KAFKA_REPLICA_FETCH_MAX_BYTES: "1572864"
+      KAFKA_LOG_CLEANUP_POLICY: "compact"
+      KAFKA_LOG_ROLL_MS: "100"
+      KAFKA_LOG_CLEANER_DELETE_RETENTION_MS: "100"
+      KAFKA_LOG_CLEANER_MIN_CLEANABLE_RATIO: "0.01"
+      KAFKA_MESSAGE_MAX_BYTES: "52428800"
+    depends_on:
+    - zookeeper
+  kafka_health_check:
+    build: .
+    ports:
+      - "5000:80"
+    depends_on:
+      kafka:
+        condition: service_healthy  
